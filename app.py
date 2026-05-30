@@ -79,14 +79,19 @@ def hero_map(df: pd.DataFrame):
     m = df[_valid_coords(df)].copy()
     vmax = m["Maximum_Monthly_Liters"].quantile(0.97)
     m["color"] = m["Maximum_Monthly_Liters"].apply(lambda v: _potential_color(v, vmax))
-    m["radius"] = 60 + (m["Maximum_Monthly_Liters"].clip(upper=vmax) / vmax * 240)
+    # Pixel-sized radius (2–14 px) so dots stay visible at any zoom: normalise
+    # potential against the 97th-pct cap rather than baking metres into get_radius.
+    t = (m["Maximum_Monthly_Liters"].clip(upper=vmax) / vmax) if vmax else 0
+    m["radius"] = 2 + t * 12
     layer = pdk.Layer("ScatterplotLayer",
                       data=m[["Latitude", "Longitude", "color", "radius",
                               "Outlet_ID", "Maximum_Monthly_Liters"]],
                       get_position=["Longitude", "Latitude"], get_fill_color="color",
-                      get_radius="radius", pickable=True, opacity=0.6)
+                      get_radius="radius", radius_units="pixels",
+                      radius_min_pixels=2, radius_max_pixels=15,
+                      pickable=True, opacity=0.7)
     view = pdk.ViewState(latitude=float(m["Latitude"].median()),
-                         longitude=float(m["Longitude"].median()), zoom=8)
+                         longitude=float(m["Longitude"].median()), zoom=7, pitch=0)
     return pdk.Deck(layers=[layer], initial_view_state=view, map_style="road",
                     tooltip={"text": "{Outlet_ID}\n{Maximum_Monthly_Liters} L"})
 
@@ -98,9 +103,10 @@ def outlet_map(row: pd.Series):
     pt = pd.DataFrame([{"Latitude": row["Latitude"], "Longitude": row["Longitude"]}])
     layer = pdk.Layer("ScatterplotLayer", data=pt,
                       get_position=["Longitude", "Latitude"],
-                      get_fill_color=[61, 165, 217, 220], get_radius=180)
+                      get_fill_color=[61, 165, 217, 220], get_radius=10,
+                      radius_units="pixels", radius_min_pixels=6, radius_max_pixels=14)
     view = pdk.ViewState(latitude=float(row["Latitude"]),
-                         longitude=float(row["Longitude"]), zoom=13)
+                         longitude=float(row["Longitude"]), zoom=13, pitch=0)
     return pdk.Deck(layers=[layer], initial_view_state=view, map_style="road")
 
 
