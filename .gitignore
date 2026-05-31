@@ -7,6 +7,11 @@ env/
 
 # Streamlit
 .streamlit/secrets.toml
+streamlit.log
+
+# Local dev / verification artifacts
+.playwright-mcp/
+*.png
 
 # OS / IDE
 .DS_Store

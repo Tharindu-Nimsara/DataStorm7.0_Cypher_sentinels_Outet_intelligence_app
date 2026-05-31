@@ -69,26 +69,32 @@ def _valid_coords(df: pd.DataFrame) -> pd.Series:
 # ──────────────────────────────────────────────────────────────────────────────
 # Maps
 # ──────────────────────────────────────────────────────────────────────────────
-def _potential_color(v: float, vmax: float) -> list[int]:
-    t = min(max(v / vmax, 0), 1) if vmax else 0
-    return [int(40 + 215 * t), int(120 + 40 * t), int(220 - 160 * t), 160]
+def _potential_color(t: float) -> list[int]:
+    # Clean low→high ramp driven by percentile rank t (0–1):
+    # light blue (low) → teal (mid) → amber (high).
+    t = min(max(t, 0.0), 1.0)
+    low, mid, high = (173, 216, 230), (79, 176, 198), (240, 150, 40)
+    if t < 0.5:
+        a, b, f = low, mid, t / 0.5
+    else:
+        a, b, f = mid, high, (t - 0.5) / 0.5
+    return [int(a[i] + (b[i] - a[i]) * f) for i in range(3)] + [180]
 
 
 def hero_map(df: pd.DataFrame):
     import pydeck as pdk
     m = df[_valid_coords(df)].copy()
-    vmax = m["Maximum_Monthly_Liters"].quantile(0.97)
-    m["color"] = m["Maximum_Monthly_Liters"].apply(lambda v: _potential_color(v, vmax))
-    # Pixel-sized radius (2–14 px) so dots stay visible at any zoom: normalise
-    # potential against the 97th-pct cap rather than baking metres into get_radius.
-    t = (m["Maximum_Monthly_Liters"].clip(upper=vmax) / vmax) if vmax else 0
-    m["radius"] = 2 + t * 12
+    # Size & colour on PERCENTILE RANK across the currently-displayed rows, so the
+    # full ramp is used even when filtered to one province (raw/vmax flattened it).
+    t = m["Maximum_Monthly_Liters"].rank(pct=True)
+    m["color"] = t.apply(_potential_color)
+    m["radius"] = 3 + t * 13  # ~3px smallest → ~16px largest
     layer = pdk.Layer("ScatterplotLayer",
                       data=m[["Latitude", "Longitude", "color", "radius",
                               "Outlet_ID", "Maximum_Monthly_Liters"]],
                       get_position=["Longitude", "Latitude"], get_fill_color="color",
                       get_radius="radius", radius_units="pixels",
-                      radius_min_pixels=2, radius_max_pixels=15,
+                      radius_min_pixels=3, radius_max_pixels=18,
                       pickable=True, opacity=0.7)
     view = pdk.ViewState(latitude=float(m["Latitude"].median()),
                          longitude=float(m["Longitude"].median()), zoom=7, pitch=0)
@@ -147,9 +153,17 @@ def main():
 
     with tab_map:
         st.subheader("Predicted potential across outlets")
-        st.caption("Dot size & colour ∝ predicted January-2026 potential (liters).")
+        st.caption("Dot colour ∝ predicted January-2026 potential (liters).")
         try:
             st.pydeck_chart(hero_map(fdf), use_container_width=True)
+            st.markdown(
+                "<div style='display:flex;justify-content:space-between;"
+                "font-size:0.8em;color:#666;margin-bottom:2px;'>"
+                "<span>Lower</span><span>Higher (Jan-2026 predicted L)</span></div>"
+                "<div style='height:14px;width:100%;border-radius:3px;"
+                "background:linear-gradient(to right,rgb(173,216,230),"
+                "rgb(79,176,198),rgb(240,150,40));'></div>",
+                unsafe_allow_html=True)
         except Exception as e:
             st.warning(f"Map unavailable ({e}); sample table below.")
             st.dataframe(fdf.head(500)[["Outlet_ID", "Province", "Maximum_Monthly_Liters"]])
