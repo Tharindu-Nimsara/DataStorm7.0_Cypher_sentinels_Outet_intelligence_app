@@ -26,7 +26,7 @@ repository.
 
 Four tabs, all driven by the sidebar **Province / Distributor / Outlet-ID** filters:
 
-- **🗺️ Potential map** — every outlet plotted over Sri Lanka; dot size and colour scale with
+- **🗺️ Potential map** — every outlet plotted over Sri Lanka; dot colour scale with
   predicted potential (blue → amber ramp). Dots use pixel-sized radii, so they stay clearly
   visible at the default country-wide zoom without zooming in.
 - **📋 Browse** — searchable, sortable table of all 20,000 predictions with potential,

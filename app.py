@@ -88,16 +88,15 @@ def hero_map(df: pd.DataFrame):
     # full ramp is used even when filtered to one province (raw/vmax flattened it).
     t = m["Maximum_Monthly_Liters"].rank(pct=True)
     m["color"] = t.apply(_potential_color)
-    m["radius"] = 3 + t * 13  # ~3px smallest → ~16px largest
+    m["radius"] = 1.5 + t * 3.0  # ~1.5–4.5 px: small enough to read density at zoom
     layer = pdk.Layer("ScatterplotLayer",
                       data=m[["Latitude", "Longitude", "color", "radius",
                               "Outlet_ID", "Maximum_Monthly_Liters"]],
                       get_position=["Longitude", "Latitude"], get_fill_color="color",
                       get_radius="radius", radius_units="pixels",
-                      radius_min_pixels=3, radius_max_pixels=18,
-                      pickable=True, opacity=0.7)
-    view = pdk.ViewState(latitude=float(m["Latitude"].median()),
-                         longitude=float(m["Longitude"].median()), zoom=7, pitch=0)
+                      radius_min_pixels=1.5, radius_max_pixels=5,
+                      pickable=True, opacity=0.55)
+    view = pdk.ViewState(latitude=7.8, longitude=80.7, zoom=7.2, pitch=0)
     return pdk.Deck(layers=[layer], initial_view_state=view, map_style="road",
                     tooltip={"text": "{Outlet_ID}\n{Maximum_Monthly_Liters} L"})
 
